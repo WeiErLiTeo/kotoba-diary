@@ -5,15 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>言の葉の記録 - Kotoba Diary</title>
     
-    <!-- 错误捕获 -->
+    <!-- 错误显示 -->
     <script>
         window.onerror = function(msg, url, line, col, error) {
-            // 这里可以处理报错显示，为了不影响UI，保持原样或简化
             console.error(msg);
+            // 不在页面显示弹窗，以免干扰UI，只在控制台记录
             return false;
         };
     </script>
 
+    <!-- 稳定的 CDN 资源 -->
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
@@ -37,7 +38,6 @@
         }
     </script>
 
-    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@400;700;900&family=Zen+Kurenaido&family=Noto+Sans+JP:wght@300;400;500&display=swap" rel="stylesheet">
@@ -184,7 +184,6 @@
             const [passwordInput, setPasswordInput] = useState("");
             const [allData, setAllData] = useState({ entries: [], checkins: [] });
             
-            // 数据 - 这里可以修改为你自己的
             const DAILY_DATA = { date: { year: "2023", month: "10", day: "24", weekday: "火曜日", rokuyo: "大安" }, quote: { japanese: "世の中にたえて桜のなかりせば 春の心はのどけからまし", reading: [{kanji:"世",furigana:"よ"},{kanji:"の",furigana:""},{kanji:"中",furigana:"なか"},{kanji:"に",furigana:""},{kanji:"た",furigana:""},{kanji:"え",furigana:""},{kanji:"て",furigana:""},{kanji:"桜",furigana:"さくら"},{kanji:"の",furigana:""},{kanji:"な",furigana:""},{kanji:"か",furigana:""},{kanji:"り",furigana:""},{kanji:"せ",furigana:""},{kanji:"ば",furigana:""},{kanji:" ",furigana:""},{kanji:"春",furigana:"はる"},{kanji:"の",furigana:""},{kanji:"心",furigana:"こころ"},{kanji:"は",furigana:""},{kanji:"の",furigana:""},{kanji:"ど",furigana:""},{kanji:"け",furigana:""},{kanji:"か",furigana:""},{kanji:"ら",furigana:""},{kanji:"ま",furigana:""},{kanji:"し",furigana:""}], author: "在原业平", source: "《古今和歌集》", translation: "倘若世间无樱花，春心或许得安宁。", note: "这首和歌表达了对樱花之美的极致赞叹。" }, words: [{ word: "木漏れ日", furigana: "こもれび", meaning: "树叶缝隙间漏下的阳光", sentence: "木漏れ日が優しい午後。" }, { word: "泡沫", furigana: "うたかた", meaning: "短暂虚幻的事物 / 气泡", sentence: "泡沫の夢を見る。" }, { word: "積読", furigana: "つんどく", meaning: "买了书却堆着不读", sentence: "机の上に積読が増えていく。" }], grammar: { point: "～つつある", meaning: "正在不断……；逐渐…… (表示变化的持续)", example_jp: "秋が深まりつつある。", example_cn: "秋意渐浓。", note: "书面语，接动词masu形去masu，强调变化进行中。" }, culture: { title: "为何要在夏天吃鳗鱼？", content: "在日本，“土用丑日（土用の丑の日）”有吃鳗鱼的习俗。据说源于江户时代，平贺源内为了帮助鳗鱼店在夏天（淡季）促销，宣传“丑之日吃带‘う(U)’字的食物能防苦夏”。", tag: "日本の食文化" } };
 
             useEffect(() => {
@@ -197,7 +196,7 @@
             useEffect(() => { const root = window.document.documentElement; root.classList.remove('dark', 'sepia'); if (theme === 'dark') root.classList.add('dark'); if (theme === 'sepia') root.classList.add('sepia'); }, [theme]);
             
             // ===========================================
-            // 彻底修复的登录逻辑
+            // 终极修复：强制 JSON 解析，不给网页回退留活路
             // ===========================================
             const handleLogin = async (e) => {
                 e.preventDefault();
@@ -206,21 +205,28 @@
                         headers: { 'X-Auth-Pass': passwordInput }
                     });
 
-                    // >>> 核心修改：检查返回内容是不是HTML (如果是HTML说明后端verify.js文件没找到) <<<
-                    const contentType = res.headers.get("content-type");
-                    if (contentType && contentType.includes("text/html")) {
-                        alert("配置错误：后端文件 verify.js 未生效！\n请检查 'functions/api/verify.js' 是否上传正确。\nCloudflare 正在返回网页而不是 API 数据。");
+                    // 1. 检查状态码是不是 200
+                    if (res.status !== 200) {
+                        alert("密码错误 (Password Incorrect)");
                         return;
                     }
 
-                    if (res.ok) {
+                    // 2. 关键一步：尝试把结果当成 JSON 解析
+                    // 如果后端文件不存在，Cloudflare 会返回网页 HTML，这一步会直接报错（跳到 catch）
+                    const data = await res.json();
+
+                    // 3. 检查 JSON 里有没有暗号 "success: true"
+                    if (data.success === true) {
                         setIsAdmin(true); 
                         setShowLoginModal(false);
                     } else {
-                        alert("密码错误 (Password Incorrect)");
+                        alert("验证失败");
                     }
+
                 } catch (err) {
-                    alert("验证请求失败: " + err.message);
+                    // 如果代码跑到这里，说明 JSON 解析失败了，也就是后端文件没找到，返回了网页
+                    alert("⚠️ 系统错误：无法连接到验证服务。\n\n这通常是因为 'functions' 文件夹放错了位置。\n请检查您的文件结构是否正确。");
+                    console.error(err);
                 }
             };
 
