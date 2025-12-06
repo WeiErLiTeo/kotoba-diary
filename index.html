@@ -5,16 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>言の葉の記録 - Kotoba Diary</title>
     
-    <!-- 错误显示 -->
+    <!-- 错误拦截 -->
     <script>
-        window.onerror = function(msg, url, line, col, error) {
-            console.error(msg);
-            // 不在页面显示弹窗，以免干扰UI，只在控制台记录
-            return false;
-        };
+        window.onerror = function(msg) { console.error(msg); return false; };
     </script>
 
-    <!-- 稳定的 CDN 资源 -->
+    <!-- 基础资源 -->
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
@@ -101,7 +97,7 @@
         const RubyText = ({ textData, className = "" }) => (<h1 className={`leading-relaxed tracking-wide ${className}`}>{textData.map((item, index) => (<span key={index} className="inline-block mx-[1px]">{item.furigana ? <ruby className="group">{item.kanji}<rt className="text-[0.4em] font-normal opacity-60 group-hover:opacity-100 transition-opacity mb-1 select-none text-current">{item.furigana}</rt></ruby> : <span>{item.kanji}</span>}</span>))}</h1>);
         const AudioPlayer = ({ textToRead }) => { const [isPlaying, setIsPlaying] = useState(false); const synthRef = useRef(null); const handlePlay = () => { if (typeof window !== 'undefined' && window.speechSynthesis) { synthRef.current = window.speechSynthesis; if (isPlaying) { synthRef.current.cancel(); setIsPlaying(false); } else { const u = new SpeechSynthesisUtterance(textToRead); u.lang = 'ja-JP'; u.rate = 0.8; u.onend = () => setIsPlaying(false); synthRef.current.speak(u); setIsPlaying(true); } } }; return (<div className="bg-stone-800 dark:bg-stone-900 text-[#F7F4EF] p-5 rounded-2xl shadow-lg flex flex-col justify-between h-full relative overflow-hidden group"><div className="flex justify-between items-start z-10"><div><span className="text-xs uppercase tracking-[0.2em] text-stone-400">AI Voice</span><h3 className="text-sm mt-1 font-serif text-stone-200">読み上げ</h3></div><Volume2 size={16} className={`text-stone-300 transition-opacity ${isPlaying ? 'opacity-100' : 'opacity-30'}`} /></div><div className="flex items-center gap-4 mt-6 z-10"><button onClick={handlePlay} className="w-12 h-12 rounded-full bg-[#F7F4EF] text-stone-900 flex items-center justify-center hover:scale-105 transition-transform shadow-md shrink-0">{isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-1"/>}</button><div className="flex-1 w-full overflow-hidden"><div className="flex items-center gap-[2px] h-8 opacity-80">{[...Array(15)].map((_, i) => (<div key={i} className={`w-1 bg-stone-400 rounded-full transition-all duration-300 ${isPlaying ? 'animate-music-bar' : 'h-1'}`} style={{ height: isPlaying ? `${Math.max(20, Math.random() * 100)}%` : '4px', animationDelay: `${i * 0.05}s` }}></div>))}</div></div></div></div>); };
 
-        const DiarySection = ({ isAdmin, password, allData, onDataUpdate }) => {
+        const DiarySection = ({ isAdmin, token, allData, onDataUpdate }) => {
             const [diaryText, setDiaryText] = useState("");
             const [isFocused, setIsFocused] = useState(false);
             const [selectedImage, setSelectedImage] = useState(null);
@@ -120,7 +116,12 @@
                     if (imageFile) {
                         const formData = new FormData();
                         formData.append('file', imageFile);
-                        const uploadRes = await fetch(`${WORKER_API_URL}/api/upload`, { method: 'PUT', headers: { 'X-Auth-Pass': password }, body: formData });
+                        // 注意：现在使用的是 Authorization 头
+                        const uploadRes = await fetch(`${WORKER_API_URL}/api/upload`, { 
+                            method: 'PUT', 
+                            headers: { 'Authorization': `Bearer ${token}` }, 
+                            body: formData 
+                        });
                         if (!uploadRes.ok) throw new Error(`Upload Failed: ${uploadRes.status}`);
                         const data = await uploadRes.json();
                         finalImageUrl = data.url;
@@ -128,13 +129,36 @@
                     const newEntry = { id: Date.now().toString(), text: diaryText, imageUrl: finalImageUrl, date: new Date().toLocaleDateString('ja-JP', {month: 'numeric', day: 'numeric'}), timestamp: Date.now() };
                     const updatedEntries = [newEntry, ...(allData.entries || [])];
                     const newData = { ...allData, entries: updatedEntries };
-                    const saveRes = await fetch(`${WORKER_API_URL}/api/data`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Auth-Pass': password }, body: JSON.stringify(newData) });
+                    // 注意：这里也使用的是 Authorization 头
+                    const saveRes = await fetch(`${WORKER_API_URL}/api/data`, { 
+                        method: 'POST', 
+                        headers: { 
+                            'Content-Type': 'application/json', 
+                            'Authorization': `Bearer ${token}` 
+                        }, 
+                        body: JSON.stringify(newData) 
+                    });
                     if (!saveRes.ok) throw new Error("Data Save Failed");
                     onDataUpdate(newData); setDiaryText(""); setSelectedImage(null); setImageFile(null);
-                } catch (e) { console.error(e); alert("保存失败 (请检查网络或密码): " + e.message); } finally { setIsUploading(false); }
+                } catch (e) { console.error(e); alert("保存失败 (认证失效，请重新登录): " + e.message); } finally { setIsUploading(false); }
             };
 
-            const handleDelete = async (entryId) => { if (!confirm("确认删除？")) return; try { const updatedEntries = allData.entries.filter(e => e.id !== entryId); const newData = { ...allData, entries: updatedEntries }; await fetch(`${WORKER_API_URL}/api/data`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Auth-Pass': password }, body: JSON.stringify(newData) }); onDataUpdate(newData); setViewingEntry(null); } catch (e) { alert("删除失败: " + e.message); } };
+            const handleDelete = async (entryId) => { 
+                if (!confirm("确认删除？")) return; 
+                try { 
+                    const updatedEntries = allData.entries.filter(e => e.id !== entryId); 
+                    const newData = { ...allData, entries: updatedEntries }; 
+                    await fetch(`${WORKER_API_URL}/api/data`, { 
+                        method: 'POST', 
+                        headers: { 
+                            'Content-Type': 'application/json', 
+                            'Authorization': `Bearer ${token}` 
+                        }, 
+                        body: JSON.stringify(newData) 
+                    }); 
+                    onDataUpdate(newData); setViewingEntry(null); 
+                } catch (e) { alert("删除失败: " + e.message); } 
+            };
 
             if (!isAdmin) return <div className="h-full bg-white dark:bg-stone-800 rounded-2xl p-5 shadow-sm border border-stone-100 dark:border-stone-700 flex flex-col items-center justify-center text-center opacity-70"><Lock size={32} className="text-stone-300 mb-2" /><p className="text-sm text-stone-500">访客模式不可见</p></div>;
 
@@ -164,10 +188,25 @@
             );
         };
 
-        const ZenMountainHeatmap = ({ isAdmin, password, allData, onDataUpdate }) => {
+        const ZenMountainHeatmap = ({ isAdmin, token, allData, onDataUpdate }) => {
             const checkins = allData.checkins || [];
             const hasCheckedIn = checkins.some(ts => new Date(ts).setHours(0,0,0,0) === new Date().setHours(0,0,0,0));
-            const handleCheckIn = async () => { if (hasCheckedIn) return; try { const newCheckins = [...checkins, Date.now()]; const newData = { ...allData, checkins: newCheckins }; await fetch(`${WORKER_API_URL}/api/data`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Auth-Pass': password }, body: JSON.stringify(newData) }); onDataUpdate(newData); } catch (e) { alert("打卡失败: " + e.message); } };
+            const handleCheckIn = async () => { 
+                if (hasCheckedIn) return; 
+                try { 
+                    const newCheckins = [...checkins, Date.now()]; 
+                    const newData = { ...allData, checkins: newCheckins }; 
+                    await fetch(`${WORKER_API_URL}/api/data`, { 
+                        method: 'POST', 
+                        headers: { 
+                            'Content-Type': 'application/json', 
+                            'Authorization': `Bearer ${token}` 
+                        }, 
+                        body: JSON.stringify(newData) 
+                    }); 
+                    onDataUpdate(newData); 
+                } catch (e) { alert("打卡失败: " + e.message); } 
+            };
             const mountainPath = useMemo(() => { const points = []; const width = 300; const height = 80; const steps = 14; const stepWidth = width / steps; points.push(`0,${height}`); for (let i = 0; i <= steps; i++) { const isActive = isAdmin ? checkins.length > i : Math.random() > 0.6; const x = i * stepWidth; const peakHeight = isActive ? Math.random() * 40 + 10 : Math.random() * 10 + 70; points.push(`${x},${peakHeight}`); } points.push(`${width},${height}`); return points.join(" "); }, [checkins, isAdmin]);
             return (
                 <div className="bg-white dark:bg-stone-800 p-5 rounded-xl border border-stone-100 dark:border-stone-700 h-full flex flex-col justify-between transition-colors overflow-hidden relative group">
@@ -180,6 +219,7 @@
             const [theme, setTheme] = useState('light');
             const [isMenuOpen, setIsMenuOpen] = useState(false);
             const [isAdmin, setIsAdmin] = useState(false);
+            const [token, setToken] = useState(null); // 新增：保存Token
             const [showLoginModal, setShowLoginModal] = useState(true);
             const [passwordInput, setPasswordInput] = useState("");
             const [allData, setAllData] = useState({ entries: [], checkins: [] });
@@ -196,37 +236,36 @@
             useEffect(() => { const root = window.document.documentElement; root.classList.remove('dark', 'sepia'); if (theme === 'dark') root.classList.add('dark'); if (theme === 'sepia') root.classList.add('sepia'); }, [theme]);
             
             // ===========================================
-            // 终极修复：强制 JSON 解析，不给网页回退留活路
+            // 新的登录逻辑：获取 Token
             // ===========================================
             const handleLogin = async (e) => {
                 e.preventDefault();
                 try {
-                    const res = await fetch(`${WORKER_API_URL}/api/verify`, {
-                        headers: { 'X-Auth-Pass': passwordInput }
+                    const res = await fetch(`${WORKER_API_URL}/api/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ password: passwordInput })
                     });
 
-                    // 1. 检查状态码是不是 200
-                    if (res.status !== 200) {
-                        alert("密码错误 (Password Incorrect)");
+                    // 1. 检查是不是 HTML (后端文件丢失的标志)
+                    const contentType = res.headers.get("content-type");
+                    if (contentType && contentType.includes("text/html")) {
+                        alert("⚠️ 后端文件丢失！\n请检查 'functions/api/login.js' 是否存在。\n服务器返回了网页而不是Token。");
                         return;
                     }
 
-                    // 2. 关键一步：尝试把结果当成 JSON 解析
-                    // 如果后端文件不存在，Cloudflare 会返回网页 HTML，这一步会直接报错（跳到 catch）
                     const data = await res.json();
 
-                    // 3. 检查 JSON 里有没有暗号 "success: true"
-                    if (data.success === true) {
+                    if (res.ok && data.token) {
                         setIsAdmin(true); 
+                        setToken(data.token); // 保存 Token
                         setShowLoginModal(false);
                     } else {
-                        alert("验证失败");
+                        alert("❌ 密码错误");
                     }
 
                 } catch (err) {
-                    // 如果代码跑到这里，说明 JSON 解析失败了，也就是后端文件没找到，返回了网页
-                    alert("⚠️ 系统错误：无法连接到验证服务。\n\n这通常是因为 'functions' 文件夹放错了位置。\n请检查您的文件结构是否正确。");
-                    console.error(err);
+                    alert("⚠️ 登录请求失败: " + err.message);
                 }
             };
 
@@ -242,11 +281,11 @@
                     <div className="hidden lg:flex flex-col items-center justify-start pt-4 gap-4 row-span-2"><div className="border-l border-stone-300 dark:border-stone-700 h-20"></div><div className="vertical-text text-xl font-bold tracking-[0.3em] h-48 leading-loose select-none">{DAILY_DATA.date.year}年<span className="my-4 block text-[#7D3C3C]">{DAILY_DATA.date.month}月{DAILY_DATA.date.day}日</span>{DAILY_DATA.date.weekday}</div><div className="w-8 h-8 rounded border border-[#7D3C3C] text-[#7D3C3C] text-xs flex items-center justify-center p-1 font-serif writing-mode-vertical-rl">{DAILY_DATA.date.rokuyo}</div><div className="border-l border-stone-300 dark:border-stone-700 h-full flex-1 min-h-[100px]"></div></div>
                     <div className="lg:hidden col-span-1 md:col-span-2 flex justify-between items-end border-b border-stone-300 dark:border-stone-700 pb-4 mb-2"><div><p className="text-3xl font-serif">{DAILY_DATA.date.month}<span className="text-sm mx-1">/</span>{DAILY_DATA.date.day}</p><p className="text-xs text-stone-500 mt-1 uppercase tracking-widest">{DAILY_DATA.date.weekday} | {DAILY_DATA.date.year}</p></div><div className="px-3 py-1 border border-[#7D3C3C] text-[#7D3C3C] text-xs rounded-full">{DAILY_DATA.date.rokuyo}</div></div>
                     <div className="col-span-1 md:col-span-2 lg:col-span-2 row-span-auto bg-white dark:bg-stone-800 p-8 md:p-12 rounded-2xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all"><span className="absolute -top-6 -left-6 text-9xl font-serif opacity-[0.03] select-none pointer-events-none text-stone-900 dark:text-stone-100">“</span><div className="relative z-10 flex flex-col h-full justify-center"><div className="mb-6 flex justify-center md:justify-start"><span className="bg-[#5F6F5E] text-white text-[10px] px-2 py-1 tracking-widest uppercase rounded-sm">Today's Quote</span></div><div className="text-center md:text-left mb-8"><RubyText textData={DAILY_DATA.quote.reading} className="text-2xl md:text-3xl lg:text-4xl font-medium" /></div><div className="space-y-4 md:border-l-2 md:border-stone-100 dark:md:border-stone-700 md:pl-6"><p className="text-stone-600 dark:text-stone-300 font-serif leading-loose text-lg">{DAILY_DATA.quote.translation}</p><div className="text-right md:text-left mt-4"><p className="text-sm font-bold">— {DAILY_DATA.quote.author}</p><p className="text-xs text-stone-400 mt-1 italic">{DAILY_DATA.quote.source}</p></div></div><div className="mt-8 pt-6 border-t border-dashed border-stone-200 dark:border-stone-700 text-xs text-stone-500 leading-relaxed flex gap-3"><Info size={14} className="shrink-0 mt-0.5 text-stone-300" />{DAILY_DATA.quote.note}</div></div></div>
-                    <div className="col-span-1 md:col-span-1 lg:col-span-1 flex flex-col gap-6"><div className="h-48"><AudioPlayer textToRead={DAILY_DATA.quote.japanese} /></div><div className="flex-1 min-h-[240px]"><DiarySection isAdmin={isAdmin} password={passwordInput} allData={allData} onDataUpdate={setAllData} /></div></div>
+                    <div className="col-span-1 md:col-span-1 lg:col-span-1 flex flex-col gap-6"><div className="h-48"><AudioPlayer textToRead={DAILY_DATA.quote.japanese} /></div><div className="flex-1 min-h-[240px]"><DiarySection isAdmin={isAdmin} token={token} allData={allData} onDataUpdate={setAllData} /></div></div>
                     {DAILY_DATA.words.map((word, index) => (<div key={index} className="col-span-1 bg-white/60 dark:bg-stone-800/60 backdrop-blur-sm p-5 rounded-xl border border-stone-100 dark:border-stone-700 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1 relative overflow-hidden"><span className="absolute top-3 right-3 text-xs font-serif text-stone-300 z-10">0{index + 1}</span><div className="relative z-10"><h3 className="text-xl font-bold mb-1 font-serif">{word.word}</h3><p className="text-xs text-stone-500 mb-3 font-mono">{word.furigana}</p><div className="h-px w-8 bg-[#7D3C3C]/30 mb-3"></div><p className="text-sm font-bold text-stone-600 dark:text-stone-400 mb-2">{word.meaning}</p><div className="bg-[#F7F4EF] dark:bg-stone-900 p-2 rounded text-xs text-stone-500 leading-relaxed italic border-l-2 border-stone-300 dark:border-stone-600">{word.sentence}</div></div></div>))}
                     <div className="col-span-1 md:col-span-2 bg-[#fffdf5] dark:bg-stone-900 p-6 rounded-2xl shadow-sm border border-yellow-50/50 dark:border-stone-700 relative overflow-hidden transform rotate-[0.5deg] hover:rotate-0 transition-transform duration-300"><div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-8 bg-yellow-200/40 dark:bg-yellow-900/20 rotate-[-2deg] backdrop-blur-sm shadow-sm"></div><div className="font-handwriting text-stone-700 dark:text-stone-300 mt-2"><div className="flex items-center gap-2 mb-4 text-[#7D3C3C]"><Feather size={18} /><h3 className="text-xl font-bold">文法ノート</h3></div><div className="flex flex-col md:flex-row gap-6"><div className="flex-1"><span className="text-3xl block mb-2 border-b-2 border-stone-800/10 dark:border-stone-200/10 inline-block pb-1">{DAILY_DATA.grammar.point}</span><p className="text-lg mb-4">{DAILY_DATA.grammar.meaning}</p></div><div className="flex-1 bg-white/50 dark:bg-stone-800/50 p-4 rounded-xl border border-stone-200/50 dark:border-stone-700 border-dashed"><p className="text-xl mb-1">{DAILY_DATA.grammar.example_jp}</p><p className="text-sm text-stone-500">{DAILY_DATA.grammar.example_cn}</p></div></div></div></div>
                     <div className="col-span-1 md:col-span-1 lg:row-span-1 bg-stone-800 text-[#F7F4EF] rounded-2xl overflow-hidden shadow-lg flex flex-col relative group"><div className="h-32 bg-stone-700 relative overflow-hidden"><svg className="absolute inset-0 w-full h-full opacity-30" width="100%" height="100%"><pattern id="pattern-circles" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="10" cy="10" r="1.5" fill="#F7F4EF" /></pattern><rect x="0" y="0" width="100%" height="100%" fill="url(#pattern-circles)" /></svg><div className="absolute inset-0 flex items-center justify-center"><span className="text-5xl select-none opacity-20 transform group-hover:scale-110 transition-transform duration-500">鰻</span></div><div className="absolute bottom-3 left-4 bg-[#7D3C3C] text-[10px] px-2 py-0.5 rounded text-white">{DAILY_DATA.culture.tag}</div></div><div className="p-5 flex-1 flex flex-col justify-between"><div><h3 className="text-md font-bold font-serif mb-2 leading-snug">{DAILY_DATA.culture.title}</h3><p className="text-xs text-stone-400 leading-relaxed line-clamp-3">{DAILY_DATA.culture.content}</p></div></div></div>
-                    <div className="col-span-1"><ZenMountainHeatmap isAdmin={isAdmin} password={passwordInput} allData={allData} onDataUpdate={setAllData} /></div>
+                    <div className="col-span-1"><ZenMountainHeatmap isAdmin={isAdmin} token={token} allData={allData} onDataUpdate={setAllData} /></div>
                     </div>
                     <footer className="mt-16 border-t border-stone-300 dark:border-stone-700 py-10 flex flex-col items-center"><div className="flex items-center justify-center gap-4 mb-4 opacity-60 hover:opacity-100 transition-opacity"><BookOpen size={20} className="text-stone-600 dark:text-stone-400"/><span className="w-1 h-1 bg-stone-400 rounded-full"></span><Sun size={20} className="text-stone-600 dark:text-stone-400"/></div><p className="text-xs text-stone-500 tracking-widest font-serif">言の葉の記録 © 2023 | 言葉は、心をつなぐ架け橋。</p></footer>
                 </main>
