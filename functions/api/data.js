@@ -1,8 +1,4 @@
-// Cloudflare Pages Function - Data Handler
-// This handles reading and writing the diary JSON data to Cloudflare KV
-
 export async function onRequestGet(context) {
-  // Reading data
   try {
     const value = await context.env.DIARY_KV.get("data");
     if (!value) {
@@ -19,20 +15,16 @@ export async function onRequestGet(context) {
 }
 
 export async function onRequestPost(context) {
-  // Saving data
   try {
-    // Basic password check (Replace '1234' with an environment variable for better security if you want)
     const pass = context.request.headers.get("X-Auth-Pass");
-    // You can set DIARY_PASSWORD in Cloudflare Dashboard -> Settings -> Environment Variables
-    const correctPass = context.env.DIARY_PASSWORD || "1234"; 
+    // 严格模式：必须从环境变量获取，不设默认值
+    const correctPass = context.env.DIARY_PASSWORD; 
     
-    if (pass !== correctPass) {
+    if (!correctPass || pass !== correctPass) {
       return new Response("Unauthorized", { status: 401 });
     }
 
     const data = await context.request.json();
-    
-    // Save to KV
     await context.env.DIARY_KV.put("data", JSON.stringify(data));
     
     return new Response(JSON.stringify({ success: true }), {
