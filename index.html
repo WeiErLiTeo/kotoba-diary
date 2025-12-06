@@ -5,14 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>言の葉の記録 - Kotoba Diary</title>
     
-    <!-- React & ReactDOM -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- 错误捕获脚本：如果白屏，会显示具体错误 -->
+    <script>
+        window.onerror = function(msg, url, line, col, error) {
+            document.getElementById('root').innerHTML = `
+                <div style="padding: 20px; font-family: sans-serif; color: #7D3C3C;">
+                    <h2 style="font-size: 1.2rem; font-weight: bold; margin-bottom: 10px;">⚠️ 发生错误 (Error Occurred)</h2>
+                    <p style="background: #fff0f0; padding: 10px; border-radius: 5px; border: 1px solid #ffcccc; font-family: monospace;">${msg}</p>
+                    <p style="font-size: 0.9rem; color: #666;">Line: ${line} | Col: ${col}</p>
+                    <p style="font-size: 0.8rem; margin-top: 20px;">请截图此页面发送给助手。</p>
+                </div>
+            `;
+            return false;
+        };
+    </script>
+
+    <!-- 1. 更换为更稳定的 Cloudflare CDN (cdnjs) -->
+    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     
     <!-- Babel for JSX -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
     
-    <!-- Tailwind CSS -->
+    <!-- Tailwind CSS (如果这个加载慢，页面会暂时没有样式，但不应该白屏) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -26,18 +41,7 @@
                         mono: ['monospace'],
                     },
                     colors: {
-                        stone: {
-                            50: '#fafaf9',
-                            100: '#f5f5f4',
-                            200: '#e7e5e4',
-                            300: '#d6d3d1',
-                            400: '#a8a29e',
-                            500: '#78716c',
-                            600: '#57534e',
-                            700: '#44403c',
-                            800: '#292524',
-                            900: '#1c1917',
-                        }
+                        stone: { 50: '#fafaf9', 100: '#f5f5f4', 200: '#e7e5e4', 300: '#d6d3d1', 400: '#a8a29e', 500: '#78716c', 600: '#57534e', 700: '#44403c', 800: '#292524', 900: '#1c1917' }
                     }
                 }
             }
@@ -50,41 +54,32 @@
     <link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@400;700;900&family=Zen+Kurenaido&family=Noto+Sans+JP:wght@300;400;500&display=swap" rel="stylesheet">
 
     <style>
-        /* Global Styles */
         body { font-family: 'Zen Old Mincho', serif; }
         .font-handwriting { font-family: 'Zen Kurenaido', sans-serif; }
         .vertical-text { writing-mode: vertical-rl; text-orientation: upright; }
-        
-        /* Sepia Theme Overrides */
         .sepia .bg-white { background-color: #f3e5cf !important; border-color: #dcc8a8 !important; }
         .sepia .text-stone-500 { color: #8c7b66 !important; }
-        
-        /* Animations */
         .animate-slide-in { animation: slideIn 0.3s ease-out forwards; }
         .animate-slide-in-up { animation: slideInUp 0.3s ease-out forwards; }
-        
-        @keyframes slideIn { 
-            from { transform: translateX(100%); opacity: 0; } 
-            to { transform: translateX(0); opacity: 1; } 
-        }
-        @keyframes slideInUp { 
-            from { transform: translateY(20px); opacity: 0; } 
-            to { transform: translateY(0); opacity: 1; } 
-        }
-        @keyframes music-bar { 
-            0%, 100% { height: 20%; } 
-            50% { height: 100%; } 
-        }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideInUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes music-bar { 0%, 100% { height: 20%; } 50% { height: 100%; } }
         .animate-music-bar { animation: music-bar 0.4s ease-in-out infinite; }
-        
-        /* Hide scrollbar for cleaner look */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background-color: rgba(120, 113, 108, 0.3); border-radius: 20px; }
     </style>
 </head>
 <body>
-    <div id="root"></div>
+    <!-- 2. 添加加载提示 -->
+    <div id="root">
+        <div style="height: 100vh; display: flex; align-items: center; justify-content: center; background: #F7F4EF; color: #7D3C3C;">
+            <div style="text-align: center;">
+                <p style="font-size: 1.5rem; font-weight: bold; margin-bottom: 10px;">Loading...</p>
+                <p style="font-size: 0.8rem; opacity: 0.7;">正在加载资源，请稍候</p>
+            </div>
+        </div>
+    </div>
 
     <script type="text/babel">
         // 1. Globals & Imports Mapping
@@ -93,11 +88,7 @@
         // =============================================================================
         // INTERNAL ICON DEFINITIONS
         // =============================================================================
-        
-        const IconBase = ({ children, size = 24, className = "", ...props }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>{children}</svg>
-        );
-
+        const IconBase = ({ children, size = 24, className = "", ...props }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>{children}</svg>);
         const Play = (props) => <IconBase {...props}><polygon points="5 3 19 12 5 21 5 3"/></IconBase>;
         const Pause = (props) => <IconBase {...props}><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></IconBase>;
         const BookOpen = (props) => <IconBase {...props}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></IconBase>;
@@ -124,11 +115,10 @@
         // =============================================================================
         // Configuration
         // =============================================================================
-        // CHANGED: Empty string tells it to look at the same domain (Pages Functions)
         const WORKER_API_URL = ""; 
 
         // =============================================================================
-        // Components (Simplified for brevity, same logic as before)
+        // Components
         // =============================================================================
         
         const TwitterBlueBird = ({ size = 20, className = "" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>);
@@ -176,7 +166,7 @@
             const handleImageSelect = (e) => {
                 const file = e.target.files[0];
                 if (file) {
-                    setImageFile(file); // Store file object for upload
+                    setImageFile(file);
                     const reader = new FileReader();
                     reader.onloadend = () => setSelectedImage(reader.result);
                     reader.readAsDataURL(file);
@@ -191,11 +181,10 @@
                     if (imageFile) {
                         const formData = new FormData();
                         formData.append('file', imageFile);
-                        // Cloudflare Function endpoint for upload
                         const uploadRes = await fetch(`${WORKER_API_URL}/api/upload`, {
                             method: 'PUT',
                             headers: { 'X-Auth-Pass': password },
-                            body: formData // Send as FormData
+                            body: formData
                         });
                         if (!uploadRes.ok) throw new Error(`Upload Failed: ${uploadRes.status}`);
                         const data = await uploadRes.json();
@@ -313,7 +302,6 @@
             const DAILY_DATA = { date: { year: "2023", month: "10", day: "24", weekday: "火曜日", rokuyo: "大安" }, quote: { japanese: "世の中にたえて桜のなかりせば 春の心はのどけからまし", reading: [{kanji:"世",furigana:"よ"},{kanji:"の",furigana:""},{kanji:"中",furigana:"なか"},{kanji:"に",furigana:""},{kanji:"た",furigana:""},{kanji:"え",furigana:""},{kanji:"て",furigana:""},{kanji:"桜",furigana:"さくら"},{kanji:"の",furigana:""},{kanji:"な",furigana:""},{kanji:"か",furigana:""},{kanji:"り",furigana:""},{kanji:"せ",furigana:""},{kanji:"ば",furigana:""},{kanji:" ",furigana:""},{kanji:"春",furigana:"はる"},{kanji:"の",furigana:""},{kanji:"心",furigana:"こころ"},{kanji:"は",furigana:""},{kanji:"の",furigana:""},{kanji:"ど",furigana:""},{kanji:"け",furigana:""},{kanji:"か",furigana:""},{kanji:"ら",furigana:""},{kanji:"ま",furigana:""},{kanji:"し",furigana:""}], author: "在原业平", source: "《古今和歌集》", translation: "倘若世间无樱花，春心或许得安宁。", note: "这首和歌表达了对樱花之美的极致赞叹。" }, words: [{ word: "木漏れ日", furigana: "こもれび", meaning: "树叶缝隙间漏下的阳光", sentence: "木漏れ日が優しい午後。" }, { word: "泡沫", furigana: "うたかた", meaning: "短暂虚幻的事物 / 气泡", sentence: "泡沫の夢を見る。" }, { word: "積読", furigana: "つんどく", meaning: "买了书却堆着不读", sentence: "机の上に積読が増えていく。" }], grammar: { point: "～つつある", meaning: "正在不断……；逐渐…… (表示变化的持续)", example_jp: "秋が深まりつつある。", example_cn: "秋意渐浓。", note: "书面语，接动词masu形去masu，强调变化进行中。" }, culture: { title: "为何要在夏天吃鳗鱼？", content: "在日本，“土用丑日（土用の丑の日）”有吃鳗鱼的习俗。据说源于江户时代，平贺源内为了帮助鳗鱼店在夏天（淡季）促销，宣传“丑之日吃带‘う(U)’字的食物能防苦夏”。", tag: "日本の食文化" } };
 
             useEffect(() => {
-                // Try to load data from Cloudflare Backend
                 fetch(`${WORKER_API_URL}/api/data`)
                 .then(res => res.ok ? res.json() : null)
                 .then(data => { if (data) setAllData(data); })
