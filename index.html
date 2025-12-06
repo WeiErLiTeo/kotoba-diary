@@ -5,22 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>言の葉の記録 - Kotoba Diary</title>
     
-    <!-- 错误捕获脚本 -->
+    <!-- 错误捕获 -->
     <script>
         window.onerror = function(msg, url, line, col, error) {
-            document.getElementById('root').innerHTML = `
-                <div style="padding: 20px; font-family: sans-serif; color: #7D3C3C;">
-                    <h2 style="font-size: 1.2rem; font-weight: bold; margin-bottom: 10px;">⚠️ 发生错误 (Error Occurred)</h2>
-                    <p style="background: #fff0f0; padding: 10px; border-radius: 5px; border: 1px solid #ffcccc; font-family: monospace;">${msg}</p>
-                    <p style="font-size: 0.9rem; color: #666;">Line: ${line} | Col: ${col}</p>
-                    <p style="font-size: 0.8rem; margin-top: 20px;">请截图此页面发送给助手。</p>
-                </div>
-            `;
+            // 这里可以处理报错显示，为了不影响UI，保持原样或简化
+            console.error(msg);
             return false;
         };
     </script>
 
-    <!-- 稳定的 CDN -->
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
@@ -68,7 +61,6 @@
 </head>
 <body>
     <div id="root">
-        <!-- 简单的加载占位符，防止白屏 -->
         <div style="height: 100vh; display: flex; align-items: center; justify-content: center; background: #F7F4EF; color: #7D3C3C;">
             <div style="text-align: center;">
                 <p style="font-size: 1.5rem; font-weight: bold; margin-bottom: 10px;">Loading...</p>
@@ -205,29 +197,30 @@
             useEffect(() => { const root = window.document.documentElement; root.classList.remove('dark', 'sepia'); if (theme === 'dark') root.classList.add('dark'); if (theme === 'sepia') root.classList.add('sepia'); }, [theme]);
             
             // ===========================================
-            // 重要修改：登录逻辑
+            // 彻底修复的登录逻辑
             // ===========================================
             const handleLogin = async (e) => {
                 e.preventDefault();
-                // 1. 先验证密码
                 try {
-                    // 按钮可能会稍微卡一下，因为在等待网络，为了UI不变我不加Loading动画
                     const res = await fetch(`${WORKER_API_URL}/api/verify`, {
-                        headers: {
-                            'X-Auth-Pass': passwordInput
-                        }
+                        headers: { 'X-Auth-Pass': passwordInput }
                     });
 
-                    // 2. 如果后端说 OK (200)
+                    // >>> 核心修改：检查返回内容是不是HTML (如果是HTML说明后端verify.js文件没找到) <<<
+                    const contentType = res.headers.get("content-type");
+                    if (contentType && contentType.includes("text/html")) {
+                        alert("配置错误：后端文件 verify.js 未生效！\n请检查 'functions/api/verify.js' 是否上传正确。\nCloudflare 正在返回网页而不是 API 数据。");
+                        return;
+                    }
+
                     if (res.ok) {
                         setIsAdmin(true); 
                         setShowLoginModal(false);
                     } else {
-                        // 3. 如果后端说 NO (401)
                         alert("密码错误 (Password Incorrect)");
                     }
                 } catch (err) {
-                    alert("验证出错，请检查网络: " + err.message);
+                    alert("验证请求失败: " + err.message);
                 }
             };
 
