@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>言の葉の記録 - Kotoba Diary</title>
     
-    <!-- 错误捕获脚本：如果白屏，会显示具体错误 -->
+    <!-- 错误捕获脚本 -->
     <script>
         window.onerror = function(msg, url, line, col, error) {
             document.getElementById('root').innerHTML = `
@@ -20,14 +20,10 @@
         };
     </script>
 
-    <!-- 1. 更换为更稳定的 Cloudflare CDN (cdnjs) -->
+    <!-- 稳定的 CDN -->
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-    
-    <!-- Babel for JSX -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
-    
-    <!-- Tailwind CSS (如果这个加载慢，页面会暂时没有样式，但不应该白屏) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -71,23 +67,21 @@
     </style>
 </head>
 <body>
-    <!-- 2. 添加加载提示 -->
     <div id="root">
+        <!-- 简单的加载占位符，防止白屏 -->
         <div style="height: 100vh; display: flex; align-items: center; justify-content: center; background: #F7F4EF; color: #7D3C3C;">
             <div style="text-align: center;">
                 <p style="font-size: 1.5rem; font-weight: bold; margin-bottom: 10px;">Loading...</p>
-                <p style="font-size: 0.8rem; opacity: 0.7;">正在加载资源，请稍候</p>
+                <p style="font-size: 0.8rem; opacity: 0.7;">正在启动日记本</p>
             </div>
         </div>
     </div>
 
     <script type="text/babel">
-        // 1. Globals & Imports Mapping
         const { useState, useEffect, useRef, useMemo } = React;
-        
-        // =============================================================================
-        // INTERNAL ICON DEFINITIONS
-        // =============================================================================
+        const WORKER_API_URL = ""; 
+
+        // Icons
         const IconBase = ({ children, size = 24, className = "", ...props }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>{children}</svg>);
         const Play = (props) => <IconBase {...props}><polygon points="5 3 19 12 5 21 5 3"/></IconBase>;
         const Pause = (props) => <IconBase {...props}><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></IconBase>;
@@ -111,48 +105,9 @@
         const Loader2 = (props) => <IconBase {...props}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></IconBase>;
         const Trash2 = (props) => <IconBase {...props}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></IconBase>;
         const Maximize2 = (props) => <IconBase {...props}><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></IconBase>;
-
-        // =============================================================================
-        // Configuration
-        // =============================================================================
-        const WORKER_API_URL = ""; 
-
-        // =============================================================================
-        // Components
-        // =============================================================================
-        
         const TwitterBlueBird = ({ size = 20, className = "" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>);
-
-        const RubyText = ({ textData, className = "" }) => (
-            <h1 className={`leading-relaxed tracking-wide ${className}`}>
-                {textData.map((item, index) => (
-                <span key={index} className="inline-block mx-[1px]">
-                    {item.furigana ? <ruby className="group">{item.kanji}<rt className="text-[0.4em] font-normal opacity-60 group-hover:opacity-100 transition-opacity mb-1 select-none text-current">{item.furigana}</rt></ruby> : <span>{item.kanji}</span>}
-                </span>
-                ))}
-            </h1>
-        );
-
-        const AudioPlayer = ({ textToRead }) => {
-            const [isPlaying, setIsPlaying] = useState(false);
-            const synthRef = useRef(null);
-            const handlePlay = () => {
-                if (typeof window !== 'undefined' && window.speechSynthesis) {
-                synthRef.current = window.speechSynthesis;
-                if (isPlaying) { synthRef.current.cancel(); setIsPlaying(false); } 
-                else {
-                    const u = new SpeechSynthesisUtterance(textToRead);
-                    u.lang = 'ja-JP'; u.rate = 0.8; u.onend = () => setIsPlaying(false);
-                    synthRef.current.speak(u); setIsPlaying(true);
-                }
-                }
-            };
-            return (
-                <div className="bg-stone-800 dark:bg-stone-900 text-[#F7F4EF] p-5 rounded-2xl shadow-lg flex flex-col justify-between h-full relative overflow-hidden group">
-                <div className="flex justify-between items-start z-10"><div><span className="text-xs uppercase tracking-[0.2em] text-stone-400">AI Voice</span><h3 className="text-sm mt-1 font-serif text-stone-200">読み上げ</h3></div><Volume2 size={16} className={`text-stone-300 transition-opacity ${isPlaying ? 'opacity-100' : 'opacity-30'}`} /></div>
-                <div className="flex items-center gap-4 mt-6 z-10"><button onClick={handlePlay} className="w-12 h-12 rounded-full bg-[#F7F4EF] text-stone-900 flex items-center justify-center hover:scale-105 transition-transform shadow-md shrink-0">{isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-1"/>}</button><div className="flex-1 w-full overflow-hidden"><div className="flex items-center gap-[2px] h-8 opacity-80">{[...Array(15)].map((_, i) => (<div key={i} className={`w-1 bg-stone-400 rounded-full transition-all duration-300 ${isPlaying ? 'animate-music-bar' : 'h-1'}`} style={{ height: isPlaying ? `${Math.max(20, Math.random() * 100)}%` : '4px', animationDelay: `${i * 0.05}s` }}></div>))}</div></div></div></div>
-            );
-        };
+        const RubyText = ({ textData, className = "" }) => (<h1 className={`leading-relaxed tracking-wide ${className}`}>{textData.map((item, index) => (<span key={index} className="inline-block mx-[1px]">{item.furigana ? <ruby className="group">{item.kanji}<rt className="text-[0.4em] font-normal opacity-60 group-hover:opacity-100 transition-opacity mb-1 select-none text-current">{item.furigana}</rt></ruby> : <span>{item.kanji}</span>}</span>))}</h1>);
+        const AudioPlayer = ({ textToRead }) => { const [isPlaying, setIsPlaying] = useState(false); const synthRef = useRef(null); const handlePlay = () => { if (typeof window !== 'undefined' && window.speechSynthesis) { synthRef.current = window.speechSynthesis; if (isPlaying) { synthRef.current.cancel(); setIsPlaying(false); } else { const u = new SpeechSynthesisUtterance(textToRead); u.lang = 'ja-JP'; u.rate = 0.8; u.onend = () => setIsPlaying(false); synthRef.current.speak(u); setIsPlaying(true); } } }; return (<div className="bg-stone-800 dark:bg-stone-900 text-[#F7F4EF] p-5 rounded-2xl shadow-lg flex flex-col justify-between h-full relative overflow-hidden group"><div className="flex justify-between items-start z-10"><div><span className="text-xs uppercase tracking-[0.2em] text-stone-400">AI Voice</span><h3 className="text-sm mt-1 font-serif text-stone-200">読み上げ</h3></div><Volume2 size={16} className={`text-stone-300 transition-opacity ${isPlaying ? 'opacity-100' : 'opacity-30'}`} /></div><div className="flex items-center gap-4 mt-6 z-10"><button onClick={handlePlay} className="w-12 h-12 rounded-full bg-[#F7F4EF] text-stone-900 flex items-center justify-center hover:scale-105 transition-transform shadow-md shrink-0">{isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-1"/>}</button><div className="flex-1 w-full overflow-hidden"><div className="flex items-center gap-[2px] h-8 opacity-80">{[...Array(15)].map((_, i) => (<div key={i} className={`w-1 bg-stone-400 rounded-full transition-all duration-300 ${isPlaying ? 'animate-music-bar' : 'h-1'}`} style={{ height: isPlaying ? `${Math.max(20, Math.random() * 100)}%` : '4px', animationDelay: `${i * 0.05}s` }}></div>))}</div></div></div></div>); };
 
         const DiarySection = ({ isAdmin, password, allData, onDataUpdate }) => {
             const [diaryText, setDiaryText] = useState("");
@@ -163,15 +118,7 @@
             const [viewingEntry, setViewingEntry] = useState(null);
             const fileInputRef = useRef(null);
 
-            const handleImageSelect = (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    setImageFile(file);
-                    const reader = new FileReader();
-                    reader.onloadend = () => setSelectedImage(reader.result);
-                    reader.readAsDataURL(file);
-                }
-            };
+            const handleImageSelect = (e) => { const file = e.target.files[0]; if (file) { setImageFile(file); const reader = new FileReader(); reader.onloadend = () => setSelectedImage(reader.result); reader.readAsDataURL(file); } };
 
             const handleSave = async () => {
                 if (!diaryText.trim() && !selectedImage) return;
@@ -181,60 +128,21 @@
                     if (imageFile) {
                         const formData = new FormData();
                         formData.append('file', imageFile);
-                        const uploadRes = await fetch(`${WORKER_API_URL}/api/upload`, {
-                            method: 'PUT',
-                            headers: { 'X-Auth-Pass': password },
-                            body: formData
-                        });
+                        const uploadRes = await fetch(`${WORKER_API_URL}/api/upload`, { method: 'PUT', headers: { 'X-Auth-Pass': password }, body: formData });
                         if (!uploadRes.ok) throw new Error(`Upload Failed: ${uploadRes.status}`);
                         const data = await uploadRes.json();
                         finalImageUrl = data.url;
                     }
-
-                    const newEntry = {
-                        id: Date.now().toString(),
-                        text: diaryText,
-                        imageUrl: finalImageUrl,
-                        date: new Date().toLocaleDateString('ja-JP', {month: 'numeric', day: 'numeric'}),
-                        timestamp: Date.now()
-                    };
-
+                    const newEntry = { id: Date.now().toString(), text: diaryText, imageUrl: finalImageUrl, date: new Date().toLocaleDateString('ja-JP', {month: 'numeric', day: 'numeric'}), timestamp: Date.now() };
                     const updatedEntries = [newEntry, ...(allData.entries || [])];
                     const newData = { ...allData, entries: updatedEntries };
-
-                    const saveRes = await fetch(`${WORKER_API_URL}/api/data`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'X-Auth-Pass': password },
-                        body: JSON.stringify(newData)
-                    });
-
+                    const saveRes = await fetch(`${WORKER_API_URL}/api/data`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Auth-Pass': password }, body: JSON.stringify(newData) });
                     if (!saveRes.ok) throw new Error("Data Save Failed");
-                    onDataUpdate(newData);
-                    setDiaryText("");
-                    setSelectedImage(null);
-                    setImageFile(null);
-                } catch (e) {
-                    console.error(e);
-                    alert("保存失败 (请检查网络或密码): " + e.message);
-                } finally {
-                    setIsUploading(false);
-                }
+                    onDataUpdate(newData); setDiaryText(""); setSelectedImage(null); setImageFile(null);
+                } catch (e) { console.error(e); alert("保存失败 (请检查网络或密码): " + e.message); } finally { setIsUploading(false); }
             };
 
-            const handleDelete = async (entryId) => {
-                if (!confirm("确认删除？")) return;
-                try {
-                    const updatedEntries = allData.entries.filter(e => e.id !== entryId);
-                    const newData = { ...allData, entries: updatedEntries };
-                    await fetch(`${WORKER_API_URL}/api/data`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'X-Auth-Pass': password },
-                        body: JSON.stringify(newData)
-                    });
-                    onDataUpdate(newData);
-                    setViewingEntry(null);
-                } catch (e) { alert("删除失败: " + e.message); }
-            };
+            const handleDelete = async (entryId) => { if (!confirm("确认删除？")) return; try { const updatedEntries = allData.entries.filter(e => e.id !== entryId); const newData = { ...allData, entries: updatedEntries }; await fetch(`${WORKER_API_URL}/api/data`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Auth-Pass': password }, body: JSON.stringify(newData) }); onDataUpdate(newData); setViewingEntry(null); } catch (e) { alert("删除失败: " + e.message); } };
 
             if (!isAdmin) return <div className="h-full bg-white dark:bg-stone-800 rounded-2xl p-5 shadow-sm border border-stone-100 dark:border-stone-700 flex flex-col items-center justify-center text-center opacity-70"><Lock size={32} className="text-stone-300 mb-2" /><p className="text-sm text-stone-500">访客模式不可见</p></div>;
 
@@ -267,24 +175,8 @@
         const ZenMountainHeatmap = ({ isAdmin, password, allData, onDataUpdate }) => {
             const checkins = allData.checkins || [];
             const hasCheckedIn = checkins.some(ts => new Date(ts).setHours(0,0,0,0) === new Date().setHours(0,0,0,0));
-            const handleCheckIn = async () => {
-                if (hasCheckedIn) return;
-                try {
-                const newCheckins = [...checkins, Date.now()];
-                const newData = { ...allData, checkins: newCheckins };
-                await fetch(`${WORKER_API_URL}/api/data`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Auth-Pass': password }, body: JSON.stringify(newData) });
-                onDataUpdate(newData);
-                } catch (e) { alert("打卡失败: " + e.message); }
-            };
-            const mountainPath = useMemo(() => {
-                const points = []; const width = 300; const height = 80; const steps = 14; const stepWidth = width / steps;
-                points.push(`0,${height}`);
-                for (let i = 0; i <= steps; i++) {
-                const isActive = isAdmin ? checkins.length > i : Math.random() > 0.6; 
-                const x = i * stepWidth; const peakHeight = isActive ? Math.random() * 40 + 10 : Math.random() * 10 + 70; points.push(`${x},${peakHeight}`);
-                }
-                points.push(`${width},${height}`); return points.join(" ");
-            }, [checkins, isAdmin]);
+            const handleCheckIn = async () => { if (hasCheckedIn) return; try { const newCheckins = [...checkins, Date.now()]; const newData = { ...allData, checkins: newCheckins }; await fetch(`${WORKER_API_URL}/api/data`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Auth-Pass': password }, body: JSON.stringify(newData) }); onDataUpdate(newData); } catch (e) { alert("打卡失败: " + e.message); } };
+            const mountainPath = useMemo(() => { const points = []; const width = 300; const height = 80; const steps = 14; const stepWidth = width / steps; points.push(`0,${height}`); for (let i = 0; i <= steps; i++) { const isActive = isAdmin ? checkins.length > i : Math.random() > 0.6; const x = i * stepWidth; const peakHeight = isActive ? Math.random() * 40 + 10 : Math.random() * 10 + 70; points.push(`${x},${peakHeight}`); } points.push(`${width},${height}`); return points.join(" "); }, [checkins, isAdmin]);
             return (
                 <div className="bg-white dark:bg-stone-800 p-5 rounded-xl border border-stone-100 dark:border-stone-700 h-full flex flex-col justify-between transition-colors overflow-hidden relative group">
                 <div className="flex items-center justify-between mb-2 text-stone-500 dark:text-stone-400 z-10"><div className="flex items-center gap-2"><Calendar size={14} /><span className="text-xs font-bold uppercase tracking-widest">Consistency Flow</span></div>{isAdmin && <button onClick={handleCheckIn} disabled={hasCheckedIn} className={`text-[10px] px-2 py-0.5 rounded-full border transition-all flex items-center gap-1 ${hasCheckedIn ? 'bg-green-100 text-green-700 border-green-200' : 'bg-stone-50 border-stone-300 hover:bg-[#7D3C3C] hover:text-white'}`}>{hasCheckedIn ? <CheckCircle size={10} /> : null} {hasCheckedIn ? "完了" : "打卡"}</button>}</div>
@@ -299,6 +191,8 @@
             const [showLoginModal, setShowLoginModal] = useState(true);
             const [passwordInput, setPasswordInput] = useState("");
             const [allData, setAllData] = useState({ entries: [], checkins: [] });
+            
+            // 数据 - 这里可以修改为你自己的
             const DAILY_DATA = { date: { year: "2023", month: "10", day: "24", weekday: "火曜日", rokuyo: "大安" }, quote: { japanese: "世の中にたえて桜のなかりせば 春の心はのどけからまし", reading: [{kanji:"世",furigana:"よ"},{kanji:"の",furigana:""},{kanji:"中",furigana:"なか"},{kanji:"に",furigana:""},{kanji:"た",furigana:""},{kanji:"え",furigana:""},{kanji:"て",furigana:""},{kanji:"桜",furigana:"さくら"},{kanji:"の",furigana:""},{kanji:"な",furigana:""},{kanji:"か",furigana:""},{kanji:"り",furigana:""},{kanji:"せ",furigana:""},{kanji:"ば",furigana:""},{kanji:" ",furigana:""},{kanji:"春",furigana:"はる"},{kanji:"の",furigana:""},{kanji:"心",furigana:"こころ"},{kanji:"は",furigana:""},{kanji:"の",furigana:""},{kanji:"ど",furigana:""},{kanji:"け",furigana:""},{kanji:"か",furigana:""},{kanji:"ら",furigana:""},{kanji:"ま",furigana:""},{kanji:"し",furigana:""}], author: "在原业平", source: "《古今和歌集》", translation: "倘若世间无樱花，春心或许得安宁。", note: "这首和歌表达了对樱花之美的极致赞叹。" }, words: [{ word: "木漏れ日", furigana: "こもれび", meaning: "树叶缝隙间漏下的阳光", sentence: "木漏れ日が優しい午後。" }, { word: "泡沫", furigana: "うたかた", meaning: "短暂虚幻的事物 / 气泡", sentence: "泡沫の夢を見る。" }, { word: "積読", furigana: "つんどく", meaning: "买了书却堆着不读", sentence: "机の上に積読が増えていく。" }], grammar: { point: "～つつある", meaning: "正在不断……；逐渐…… (表示变化的持续)", example_jp: "秋が深まりつつある。", example_cn: "秋意渐浓。", note: "书面语，接动词masu形去masu，强调变化进行中。" }, culture: { title: "为何要在夏天吃鳗鱼？", content: "在日本，“土用丑日（土用の丑の日）”有吃鳗鱼的习俗。据说源于江户时代，平贺源内为了帮助鳗鱼店在夏天（淡季）促销，宣传“丑之日吃带‘う(U)’字的食物能防苦夏”。", tag: "日本の食文化" } };
 
             useEffect(() => {
@@ -309,7 +203,34 @@
             }, []);
 
             useEffect(() => { const root = window.document.documentElement; root.classList.remove('dark', 'sepia'); if (theme === 'dark') root.classList.add('dark'); if (theme === 'sepia') root.classList.add('sepia'); }, [theme]);
-            const handleLogin = (e) => { e.preventDefault(); setIsAdmin(true); setShowLoginModal(false); };
+            
+            // ===========================================
+            // 重要修改：登录逻辑
+            // ===========================================
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                // 1. 先验证密码
+                try {
+                    // 按钮可能会稍微卡一下，因为在等待网络，为了UI不变我不加Loading动画
+                    const res = await fetch(`${WORKER_API_URL}/api/verify`, {
+                        headers: {
+                            'X-Auth-Pass': passwordInput
+                        }
+                    });
+
+                    // 2. 如果后端说 OK (200)
+                    if (res.ok) {
+                        setIsAdmin(true); 
+                        setShowLoginModal(false);
+                    } else {
+                        // 3. 如果后端说 NO (401)
+                        alert("密码错误 (Password Incorrect)");
+                    }
+                } catch (err) {
+                    alert("验证出错，请检查网络: " + err.message);
+                }
+            };
+
             const handleGuest = () => { setIsAdmin(false); setShowLoginModal(false); };
 
             return (
