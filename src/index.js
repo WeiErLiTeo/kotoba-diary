@@ -74,8 +74,23 @@ export default {
       }
 
       // 静态资源处理 (包括 index.html)
-      const staticResponse = await env.ASSETS.fetch(request);
-      return addCORSHeaders(staticResponse);
+      if (env.ASSETS) {
+        const staticResponse = await env.ASSETS.fetch(request);
+        return addCORSHeaders(staticResponse);
+      }
+
+      // 如果没有 ASSETS 绑定，返回首页
+      if (pathname === "/" || pathname === "") {
+        return new Response("<h1>Welcome to Kotoba Diary</h1>", {
+          status: 200,
+          headers: { "Content-Type": "text/html" }
+        });
+      }
+
+      return new Response(JSON.stringify({ error: "Not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" }
+      });
 
     } catch (error) {
       console.error("Error:", error);
