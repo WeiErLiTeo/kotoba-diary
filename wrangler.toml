@@ -1,8 +1,7 @@
 name = "kotoba-diary"
-type = "javascript"
 main = "src/index.js"
 compatibility_date = "2026-02-03"
-account_id = "YOUR_ACCOUNT_ID"
+account_id = "9a9cd7ceb41ea85273eb81b508e6f28d"
 workers_dev = true
 
 # 静态资源配置
@@ -13,18 +12,5 @@ binding = "ASSETS"
 # KV 命名空间绑定
 [[kv_namespaces]]
 binding = "DIARY_KV"
-id = "YOUR_KV_NAMESPACE_ID"
-preview_id = "YOUR_KV_NAMESPACE_PREVIEW_ID"
-
-# 环境变量
-[env.production]
-route = "example.com/*"
-zone_id = "YOUR_ZONE_ID"
-
-[env.development]
-route = "*.example.com/*"
-zone_id = "YOUR_ZONE_ID"
-
-# 日志配置
-[logging]
-enabled = true
+id = "1aa85979f7a04dee8cce40cf18b536f1"
+preview_id = "1aa85979f7a04dee8cce40cf18b536f1"
