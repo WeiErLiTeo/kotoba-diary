@@ -75,7 +75,12 @@ export default {
 
       // 静态资源处理 (包括 index.html)
       if (env.ASSETS) {
-        const staticResponse = await env.ASSETS.fetch(request);
+        // 创建新的请求对象，避免传递已消费的请求体
+        const staticRequest = new Request(request.url, {
+          method: 'GET',
+          headers: request.headers
+        });
+        const staticResponse = await env.ASSETS.fetch(staticRequest);
         return addCORSHeaders(staticResponse);
       }
 

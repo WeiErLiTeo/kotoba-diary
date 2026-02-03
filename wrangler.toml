@@ -1,6 +1,6 @@
 name = "kotoba-diary"
 main = "src/index.js"
-compatibility_date = "2026-02-03"
+compatibility_date = "2024-01-01"
 account_id = "9a9cd7ceb41ea85273eb81b508e6f28d"
 workers_dev = true
 
